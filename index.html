@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Parabola Sling: Quadratic Artillery</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --sky-top: #0f172a;
+            --sky-mid: #1e3a8a;
+            --sky-bot: #38bdf8;
+        }
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body {
+            font-family: 'Fredoka', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            background-color: #0b1120;
+            color: #f8fafc;
+        }
+        .font-mono-math {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Custom Range Sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 8px;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            margin-top: -7px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+            transition: transform 0.1s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+        .slider-a::-webkit-slider-thumb { background: #f43f5e; border: 2px solid #ffe4e6; }
+        .slider-h::-webkit-slider-thumb { background: #10b981; border: 2px solid #d1fae5; }
+        .slider-k::-webkit-slider-thumb { background: #f59e0b; border: 2px solid #fef3c7; }
+
+        /* Game Button Styling */
+        .btn-arcade {
+            transition: all 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 0 rgba(0, 0, 0, 0.4), 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+        .btn-arcade:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between bg-slate-950">
+
+    <!-- Top Header & Live Quadratic Equation HUD -->
+    <header class="w-full bg-slate-900/90 border-b border-slate-800 px-3 py-2 sm:px-6 sm:py-3 shadow-lg z-10">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+            <!-- Title & Level -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-orange-500 flex items-center justify-center shadow-md border border-rose-300/30">
+                    <span class="text-xl">🎯</span>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold tracking-wide text-white leading-tight">PARABOLA SLING</h1>
+                    <div class="flex items-center gap-2 text-xs text-slate-400">
+                        <span id="level-badge" class="bg-indigo-600/40 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded-full font-semibold">Level 1 / 5</span>
+                        <span id="level-name" class="font-medium text-slate-300">First Arc</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Vertex Form Equation Display -->
+            <div class="order-3 lg:order-2 w-full lg:w-auto flex flex-col sm:flex-row items-center justify-center gap-2 bg-slate-950/90 border border-slate-700/80 px-4 py-1.5 rounded-2xl shadow-inner">
+                <div class="flex items-center gap-1.5 text-sm sm:text-base md:text-lg font-mono-math font-bold">
+                    <span class="text-slate-400">y =</span>
+                    <span id="eq-a" class="text-rose-400 bg-rose-950/60 px-1.5 py-0.5 rounded border border-rose-500/30">-0.040</span>
+                    <span class="text-slate-300">(x -</span>
+                    <span id="eq-h" class="text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/30">10.0</span>
+                    <span class="text-slate-300">)² +</span>
+                    <span id="eq-k" class="text-amber-400 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-500/30">6.0</span>
+                </div>
+                <span class="hidden sm:inline text-slate-600">|</span>
+                <div class="text-xs font-mono-math text-slate-400">
+                    Vertex: (<span id="vertex-h" class="text-emerald-400">10.0</span>, <span id="vertex-k" class="text-amber-400">6.0</span>)
+                </div>
+            </div>
+
+            <!-- Stats & Audio Toggle -->
+            <div class="order-2 lg:order-3 flex items-center gap-2 sm:gap-3">
+                <div class="bg-slate-800/90 border border-slate-700 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                    <span class="text-xs text-slate-400 uppercase font-semibold">Birds</span>
+                    <div id="ammo-display" class="flex items-center gap-1 text-base">
+                        <span>🐦</span><span>🐦</span><span>🐦</span>
+                    </div>
+                </div>
+                <div class="bg-slate-800/90 border border-slate-700 px-3 py-1.5 rounded-xl text-right">
+                    <div class="text-[10px] text-slate-400 uppercase font-semibold leading-none">Score</div>
+                    <div id="score-display" class="text-sm sm:text-base font-bold text-amber-400 font-mono-math">0</div>
+                </div>
+                <button id="btn-sound" title="Toggle Sound" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition">
+                    🔊
+                </button>
+                <button id="btn-help" title="Math Guide" class="p-2.5 rounded-xl bg-indigo-900/60 hover:bg-indigo-800/80 border border-indigo-500/40 text-indigo-200 font-bold text-sm transition">
+                    ?
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Interactive Coordinate Plane Canvas Wrapper -->
+    <main class="relative flex-1 w-full flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+        <div id="canvas-container" class="relative w-full max-w-7xl h-[54vh] sm:h-[60vh] md:h-[64vh] rounded-2xl overflow-hidden shadow-2xl border-2 border-slate-700/80 bg-slate-900">
+            <canvas id="gameCanvas"></canvas>
+
+            <!-- Floating Hint Pill inside Canvas -->
+            <div class="absolute top-3 left-3 pointer-events-none flex flex-wrap items-center gap-2">
+                <span class="bg-slate-950/75 backdrop-blur-sm text-slate-200 text-xs px-3 py-1.5 rounded-full border border-slate-700/80 shadow">
+                    💡 Drag the <span class="text-amber-400 font-bold">Vertex (h, k)</span> or <span class="text-rose-400 font-bold">Curve</span> directly on the grid!
+                </span>
+                <span id="form-mode-badge" class="bg-sky-950/80 backdrop-blur-sm text-sky-300 text-xs font-mono-math px-3 py-1.5 rounded-full border border-sky-500/40 shadow">
+                    Standard: y = -0.04x² + 0.80x + 2.00
+                </span>
+            </div>
+
+            <!-- Level Complete / Game Over Modal Overlay -->
+            <div id="modal-overlay" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-20">
+                <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl max-w-md w-full p-6 text-center shadow-2xl transform transition-all">
+                    <div id="modal-emoji" class="text-5xl mb-3">🏆</div>
+                    <h2 id="modal-title" class="text-2xl sm:text-3xl font-bold text-white mb-2">Level Cleared!</h2>
+                    <p id="modal-subtitle" class="text-slate-300 text-sm mb-4">Your parabolic trajectory obliterated every target!</p>
+                    
+                    <div class="bg-slate-950/90 border border-slate-800 rounded-2xl p-3 mb-5 text-left font-mono-math text-xs space-y-1.5">
+                        <div class="text-slate-400">Winning Quadratic Equation:</div>
+                        <div id="modal-equation" class="text-emerald-400 font-bold text-sm">y = -0.05(x - 10)² + 7</div>
+                        <div class="flex justify-between pt-2 border-t border-slate-800/80 text-slate-300">
+                            <span>Level Bonus:</span>
+                            <span id="modal-bonus" class="text-amber-400 font-bold">+500 pts</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-center gap-3">
+                        <button id="modal-btn-retry" class="btn-arcade flex-1 py-3 px-4 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm">
+                            ↻ Replay
+                        </button>
+                        <button id="modal-btn-next" class="btn-arcade flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-sm">
+                            Next Level ➔
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Math How-To Modal -->
+            <div id="help-overlay" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 z-30">
+                <div class="bg-slate-900 border-2 border-indigo-500/40 rounded-3xl max-w-lg w-full p-6 shadow-2xl">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-xl font-bold text-white flex items-center gap-2">📐 Quadratic Artillery Guide</h3>
+                        <button id="btn-close-help" class="text-slate-400 hover:text-white text-xl font-bold px-2">✕</button>
+                    </div>
+                    <p class="text-sm text-slate-300 mb-3">
+                        Your bird launches from the slingshot at <span class="font-mono-math text-sky-400 font-bold">(0, y₀)</span> and follows a parabola defined by <strong>Vertex Form</strong>:
+                    </p>
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center font-mono-math text-base text-white mb-4">
+                        y = <span class="text-rose-400">a</span>(x - <span class="text-emerald-400">h</span>)² + <span class="text-amber-400">k</span>
+                    </div>
+                    <ul class="space-y-2.5 text-xs sm:text-sm text-slate-300 mb-5">
+                        <li class="flex items-start gap-2">
+                            <span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 font-mono-math font-bold">a</span>
+                            <span><strong>Curvature / Gravity:</strong> Must be negative (<span class="font-mono-math">a &lt; 0</span>) so the parabola opens downward. Smaller magnitude = wider, flatter shot!</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono-math font-bold">h</span>
+                            <span><strong>Horizontal Vertex:</strong> The x-coordinate where the bird reaches its peak height.</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-mono-math font-bold">k</span>
+                            <span><strong>Vertical Vertex:</strong> The maximum height (y-coordinate) of the bird's flight arc.</span>
+                        </li>
+                    </ul>
+                    <button id="btn-got-it" class="btn-arcade w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold">
+                        Got It, Let's Launch! 🚀
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Bottom Control Deck (Outside Game Canvas) -->
+    <footer class="w-full bg-slate-900/95 border-t border-slate-800 px-3 py-3 sm:px-6 sm:py-4 z-10">
+        <div class="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-4">
+            
+            <!-- Quadratic Parameter Sliders -->
+            <div class="w-full lg:w-3/4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <!-- Parameter a -->
+                <div class="bg-slate-950/80 border border-slate-800 rounded-2xl px-3.5 py-2.5 flex flex-col justify-between">
+                    <div class="flex justify-between items-center mb-1">
+                        <label for="slider-a" class="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>
+                            Width / Stretch (<span class="font-mono-math">a</span>)
+                        </label>
+                        <span id="val-a" class="font-mono-math text-xs font-bold text-rose-300 bg-rose-950/70 px-2 py-0.5 rounded">-0.040</span>
+                    </div>
+                    <input id="slider-a" type="range" min="-0.25" max="-0.008" step="0.002" value="-0.04" class="slider-a w-full">
+                    <div class="flex justify-between text-[10px] text-slate-500 font-mono-math mt-1">
+                        <span>Steep (-0.25)</span>
+                        <span>Wide (-0.01)</span>
+                    </div>
+                </div>
+
+                <!-- Parameter h -->
+                <div class="bg-slate-950/80 border border-slate-800 rounded-2xl px-3.5 py-2.5 flex flex-col justify-between">
+                    <div class="flex justify-between items-center mb-1">
+                        <label for="slider-h" class="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+                            Peak Distance (<span class="font-mono-math">h</span>)
+                        </label>
+                        <span id="val-h" class="font-mono-math text-xs font-bold text-emerald-300 bg-emerald-950/70 px-2 py-0.5 rounded">10.0</span>
+                    </div>
+                    <input id="slider-h" type="range" min="2" max="24" step="0.2" value="10" class="slider-h w-full">
+                    <div class="flex justify-between text-[10px] text-slate-500 font-mono-math mt-1">
+                        <span>Near (2.0)</span>
+                        <span>Far (24.0)</span>
+                    </div>
+                </div>
+
+                <!-- Parameter k -->
+                <div class="bg-slate-950/80 border border-slate-800 rounded-2xl px-3.5 py-2.5 flex flex-col justify-between">
+                    <div class="flex justify-between items-center mb-1">
+                        <label for="slider-k" class="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+                            Peak Height (<span class="font-mono-math">k</span>)
+                        </label>
+                        <span id="val-k" class="font-mono-math text-xs font-bold text-amber-300 bg-amber-950/70 px-2 py-0.5 rounded">6.0</span>
+                    </div>
+                    <input id="slider-k" type="range" min="2" max="14" step="0.2" value="6" class="slider-k w-full">
+                    <div class="flex justify-between text-[10px] text-slate-500 font-mono-math mt-1">
+                        <span>Low (2.0)</span>
+                        <span>High (14.0)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Primary Action Buttons -->
+            <div class="w-full lg:w-1/4 flex items-center justify-center gap-2.5">
+                <button id="btn-reset" class="btn-arcade px-4 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-sm flex items-center justify-center gap-1.5" title="Reset Level">
+                    <span>↺</span>
+                    <span class="hidden sm:inline">Reset</span>
+                </button>
+                <button id="btn-fire" class="btn-arcade flex-1 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-rose-500 via-orange-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white font-extrabold text-base sm:text-lg tracking-wide shadow-lg border border-orange-300/40 flex items-center justify-center gap-2">
+                    <span>🚀 LAUNCH!</span>
+                </button>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        /**
+         * PARABOLA SLING - Quadratic Artillery Game
+         * Models projectile motion using vertex form: y = a(x - h)^2 + k
+         * The slingshot is always anchored at x = 0, so the launch elevation y0 = a(0 - h)^2 + k = a*h^2 + k.
+         * We constrain parameters so y0 stays within valid slingshot tower bounds (0.5 <= y0 <= 8.5).
+         */
+
+        // --- SOUND SYNTHESIZER (Tone.js) ---
+        class SoundEffects {
+            constructor() {
+                this.enabled = true;
+                this.initialized = false;
+            }
+            async init() {
+                if (this.initialized) return;
+                try {
+                    await Tone.start();
+                    this.synth = new Tone.PolySynth(Tone.Synth).toDestination();
+                    this.noise = new Tone.NoiseSynth({
+                        noise: { type: 'brown' },
+                        envelope: { attack: 0.01, decay: 0.25, sustain: 0 }
+                    }).toDestination();
+                    this.initialized = true;
+                } catch (e) {
+                    console.warn("Audio init deferred:", e);
+                }
+            }
+            playLaunch() {
+                if (!this.enabled || !this.initialized) return;
+                const now = Tone.now();
+                this.synth.triggerAttackRelease(["C4", "G4", "C5"], "16n", now);
+            }
+            playHitPig() {
+                if (!this.enabled || !this.initialized) return;
+                const now = Tone.now();
+                this.synth.triggerAttackRelease(["E5", "B5"], "16n", now);
+            }
+            playHitBlock() {
+                if (!this.enabled || !this.initialized) return;
+                this.noise.triggerAttackRelease("16n");
+            }
+            playWin() {
+                if (!this.enabled || !this.initialized) return;
+                const now = Tone.now();
+                this.synth.triggerAttackRelease("C5", "16n", now);
+                this.synth.triggerAttackRelease("E5", "16n", now + 0.1);
+                this.synth.triggerAttackRelease("G5", "16n", now + 0.2);
+                this.synth.triggerAttackRelease("C6", "8n", now + 0.3);
+            }
+            playFail() {
+                if (!this.enabled || !this.initialized) return;
+                const now = Tone.now();
+                this.synth.triggerAttackRelease("G3", "8n", now);
+                this.synth.triggerAttackRelease("Eb3", "4n", now + 0.15);
+            }
+        }
+        const sfx = new SoundEffects();
+
+        // --- LEVEL DEFINITIONS (In Cartesian World Units: x in [0, 28], y in [0, 15]) ---
+        const LEVELS = [
+            {
+                name: "First Arc",
+                birds: 3,
+                defaultParams: { a: -0.04, h: 10, k: 6.5 },
+                pigs: [
+                    { x: 18, y: 0.75, r: 0.75 }
+                ],
+                blocks: [
+                    { x: 15.5, y: 0, w: 0.8, h: 2.2, type: 'wood' },
+                    { x: 20.5, y: 0, w: 0.8, h: 2.2, type: 'wood' }
+                ],
+                obstacles: []
+            },
+            {
+                name: "The Stone Wall",
+                birds: 3,
+                defaultParams: { a: -0.06, h: 11, k: 8.5 },
+                pigs: [
+                    { x: 20, y: 0.75, r: 0.75 }
+                ],
+                blocks: [
+                    { x: 17.5, y: 0, w: 0.9, h: 3.5, type: 'wood' },
+                    { x: 22.2, y: 0, w: 0.9, h: 3.5, type: 'wood' },
+                    { x: 17.3, y: 3.5, w: 6.0, h: 0.7, type: 'wood' }
+                ],
+                // Indestructible stone barrier forcing a high vertex k
+                obstacles: [
+                    { x: 12.5, y: 0, w: 1.4, h: 6.8 }
+                ]
+            },
+            {
+                name: "Twin Targets",
+                birds: 4,
+                defaultParams: { a: -0.045, h: 12, k: 8.0 },
+                pigs: [
+                    { x: 14, y: 3.25, r: 0.7 },
+                    { x: 22, y: 0.75, r: 0.75 }
+                ],
+                blocks: [
+                    { x: 13.0, y: 0, w: 2.0, h: 2.5, type: 'wood' },
+                    { x: 20.5, y: 0, w: 0.8, h: 2.5, type: 'wood' },
+                    { x: 23.5, y: 0, w: 0.8, h: 2.5, type: 'wood' }
+                ],
+                obstacles: []
+            },
+            {
+                name: "Threading the Needle",
+                birds: 4,
+                defaultParams: { a: -0.05, h: 13, k: 7.5 },
+                pigs: [
+                    { x: 23, y: 2.25, r: 0.75 }
+                ],
+                blocks: [
+                    { x: 22.0, y: 0, w: 2.0, h: 1.5, type: 'wood' }
+                ],
+                // Top and bottom stone pillars creating a parabolic window
+                obstacles: [
+                    { x: 14.0, y: 0, w: 1.3, h: 4.8 },
+                    { x: 14.0, y: 9.2, w: 1.3, h: 5.8 }
+                ]
+            },
+            {
+                name: "Grand Fortress",
+                birds: 4,
+                defaultParams: { a: -0.045, h: 13.5, k: 9.5 },
+                pigs: [
+                    { x: 17.5, y: 0.75, r: 0.7 },
+                    { x: 21.5, y: 4.25, r: 0.7 },
+                    { x: 24.5, y: 0.75, r: 0.7 }
+                ],
+                blocks: [
+                    { x: 16.0, y: 0, w: 0.7, h: 3.5, type: 'wood' },
+                    { x: 19.0, y: 0, w: 0.7, h: 3.5, type: 'wood' },
+                    { x: 15.8, y: 3.5, w: 7.5, h: 0.6, type: 'wood' },
+                    { x: 23.0, y: 0, w: 0.7, h: 3.5, type: 'wood' }
+                ],
+                obstacles: [
+                    { x: 10.5, y: 0, w: 1.2, h: 5.5 }
+                ]
+            }
+        ];
+
+        // --- GAME STATE ---
+        const state = {
+            levelIdx: 0,
+            score: 0,
+            birdsLeft: 3,
+            // Quadratic parameters: y = a(x - h)^2 + k
+            a: -0.04,
+            h: 10.0,
+            k: 6.5,
+            // World coordinate bounds
+            worldWidth: 28,
+            worldHeight: 15,
+            // Projectile flight state
+            isFlying: false,
+            projectile: { x: 0, y: 2.5, trail: [] },
+            // Active level entities
+            pigs: [],
+            blocks: [],
+            obstacles: [],
+            particles: [],
+            floatingTexts: [],
+            // Interaction state
+            draggingVertex: false,
+            draggingCurve: false,
+            modalOpen: false
+        };
+
+        // --- DOM ELEMENTS ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+
+        const sliderA = document.getElementById('slider-a');
+        const sliderH = document.getElementById('slider-h');
+        const sliderK = document.getElementById('slider-k');
+
+        const valA = document.getElementById('val-a');
+        const valH = document.getElementById('val-h');
+        const valK = document.getElementById('val-k');
+
+        const eqA = document.getElementById('eq-a');
+        const eqH = document.getElementById('eq-h');
+        const eqK = document.getElementById('eq-k');
+        const vertexH = document.getElementById('vertex-h');
+        const vertexK = document.getElementById('vertex-k');
+        const formModeBadge = document.getElementById('form-mode-badge');
+
+        const levelBadge = document.getElementById('level-badge');
+        const levelName = document.getElementById('level-name');
+        const ammoDisplay = document.getElementById('ammo-display');
+        const scoreDisplay = document.getElementById('score-display');
+
+        // --- COORDINATE CONVERSION HELPERS ---
+        // Maps Cartesian (x, y) where (0,0) is bottom-left ground at slingshot to Canvas pixels
+        function getPadding() {
+            const isMobile = canvas.width < 600;
+            return {
+                left: isMobile ? 38 : 54,
+                right: isMobile ? 16 : 28,
+                top: isMobile ? 42 : 48,
+                bottom: isMobile ? 32 : 40
+            };
+        }
+
+        function worldToScreen(wx, wy) {
+            const pad = getPadding();
+            const plotW = canvas.width - pad.left - pad.right;
+            const plotH = canvas.height - pad.top - pad.bottom;
+            const sx = pad.left + (wx / state.worldWidth) * plotW;
+            const sy = canvas.height - pad.bottom - (wy / state.worldHeight) * plotH;
+            return { x: sx, y: sy };
+        }
+
+        function screenToWorld(sx, sy) {
+            const pad = getPadding();
+            const plotW = canvas.width - pad.left - pad.right;
+            const plotH = canvas.height - pad.top - pad.bottom;
+            const wx = ((sx - pad.left) / plotW) * state.worldWidth;
+            const wy = ((canvas.height - pad.bottom - sy) / plotH) * state.worldHeight;
+            return { x: wx, y: wy };
+        }
+
+        // --- QUADRATIC MATH HELPERS ---
+        function evalParabola(x, a = state.a, h = state.h, k = state.k) {
+            return a * Math.pow(x - h, 2) + k;
+        }
+
+        // Launch height at x = 0
+        function getLaunchY(a = state.a, h = state.h, k = state.k) {
+            return evalParabola(0, a, h, k);
+        }
+
+        // Ensure slingshot height at x=0 remains physically grounded on the tower (0.5 <= y0 <= 9.5)
+        function clampParameters(newA, newH, newK) {
+            let a = Math.max(-0.25, Math.min(-0.008, newA));
+            let h = Math.max(2.0, Math.min(24.0, newH));
+            let k = Math.max(2.0, Math.min(14.0, newK));
+
+            // Check launch height y0 = a*h^2 + k
+            let y0 = a * h * h + k;
+            if (y0 < 0.5) {
+                // Adjust 'a' slightly less negative so it reaches the slingshot
+                a = (0.5 - k) / (h * h);
+                a = Math.max(-0.25, Math.min(-0.008, a));
+                y0 = a * h * h + k;
+                if (y0 < 0.5) {
+                    k = 0.5 - a * h * h;
+                }
+            } else if (y0 > 9.5) {
+                // Adjust 'a' more negative so slingshot isn't floating in space
+                a = (9.5 - k) / (h * h);
+                a = Math.max(-0.25, Math.min(-0.008, a));
+                y0 = a * h * h + k;
+                if (y0 > 9.5) {
+                    k = 9.5 - a * h * h;
+                }
+            }
+
+            state.a = Number(a.toFixed(3));
+            state.h = Number(h.toFixed(1));
+            state.k = Number(k.toFixed(1));
+            syncUIWithState();
+        }
+
+        function syncUIWithState() {
+            sliderA.value = state.a;
+            sliderH.value = state.h;
+            sliderK.value = state.k;
+
+            valA.textContent = state.a.toFixed(3);
+            valH.textContent = state.h.toFixed(1);
+            valK.textContent = state.k.toFixed(1);
+
+            eqA.textContent = state.a.toFixed(3);
+            eqH.textContent = state.h.toFixed(1);
+            eqK.textContent = state.k.toFixed(1);
+
+            vertexH.textContent = state.h.toFixed(1);
+            vertexK.textContent = state.k.toFixed(1);
+
+            // Convert Vertex Form y = a(x - h)^2 + k to Standard Form y = ax^2 + bx + c
+            const stdA = state.a;
+            const stdB = -2 * state.a * state.h;
+            const stdC = state.a * state.h * state.h + state.k;
+            const bSign = stdB >= 0 ? '+' : '-';
+            const cSign = stdC >= 0 ? '+' : '-';
+            formModeBadge.textContent = `Standard: y = ${stdA.toFixed(2)}x² ${bSign} ${Math.abs(stdB).toFixed(2)}x ${cSign} ${Math.abs(stdC).toFixed(2)}`;
+
+            if (!state.isFlying) {
+                state.projectile.x = 0;
+                state.projectile.y = Math.max(0.5, getLaunchY());
+            }
+        }
+
+        // --- LEVEL MANAGEMENT ---
+        function loadLevel(idx) {
+            state.levelIdx = idx % LEVELS.length;
+            const lvl = LEVELS[state.levelIdx];
+
+            state.birdsLeft = lvl.birds;
+            state.isFlying = false;
+            state.modalOpen = false;
+            state.particles = [];
+            state.floatingTexts = [];
+
+            // Deep copy entities
+            state.pigs = lvl.pigs.map(p => ({ ...p, alive: true, hitAnim: 0 }));
+            state.blocks = lvl.blocks.map(b => ({ ...b, intact: true }));
+            state.obstacles = lvl.obstacles.map(o => ({ ...o }));
+
+            levelBadge.textContent = `Level ${state.levelIdx + 1} / ${LEVELS.length}`;
+            levelName.textContent = lvl.name;
+            updateAmmoHUD();
+
+            document.getElementById('modal-overlay').classList.add('hidden');
+            clampParameters(lvl.defaultParams.a, lvl.defaultParams.h, lvl.defaultParams.k);
+        }
+
+        function updateAmmoHUD() {
+            ammoDisplay.innerHTML = '';
+            for (let i = 0; i < state.birdsLeft; i++) {
+                const span = document.createElement('span');
+                span.textContent = '🐦';
+                ammoDisplay.appendChild(span);
+            }
+            if (state.birdsLeft === 0) {
+                ammoDisplay.innerHTML = '<span class="text-xs text-slate-500 font-mono-math">0</span>';
+            }
+        }
+
+        function addScore(pts, wx, wy, color = '#fbbf24') {
+            state.score += pts;
+            scoreDisplay.textContent = state.score;
+            state.floatingTexts.push({
+                x: wx,
+                y: wy,
+                text: `+${pts}`,
+                color: color,
+                alpha: 1.0,
+                vy: 0.03
+            });
+        }
+
+        function spawnExplosion(wx, wy, color, count = 18) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 0.04 + Math.random() * 0.14;
+                state.particles.push({
+                    x: wx,
+                    y: wy,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    r: 3 + Math.random() * 4,
+                    color: color,
+                    alpha: 1.0
+                });
+            }
+        }
+
+        // --- LAUNCH & FLIGHT SIMULATION ---
+        async function launchBird() {
+            if (state.isFlying || state.birdsLeft <= 0 || state.modalOpen) return;
+            await sfx.init();
+            sfx.playLaunch();
+
+            state.birdsLeft--;
+            updateAmmoHUD();
+
+            state.isFlying = true;
+            state.projectile = {
+                x: 0,
+                y: Math.max(0.5, getLaunchY()),
+                trail: []
+            };
+        }
+
+        function endShot() {
+            state.isFlying = false;
+            const remainingPigs = state.pigs.filter(p => p.alive).length;
+
+            if (remainingPigs === 0) {
+                // Victory!
+                const bonus = state.birdsLeft * 250 + 500;
+                state.score += bonus;
+                scoreDisplay.textContent = state.score;
+                sfx.playWin();
+                showEndModal(true, bonus);
+            } else if (state.birdsLeft <= 0) {
+                // Out of birds
+                sfx.playFail();
+                showEndModal(false, 0);
+            } else {
+                // Ready next bird
+                state.projectile.x = 0;
+                state.projectile.y = Math.max(0.5, getLaunchY());
+                state.projectile.trail = [];
+            }
+        }
+
+        function showEndModal(won, bonus) {
+            state.modalOpen = true;
+            const overlay = document.getElementById('modal-overlay');
+            const emoji = document.getElementById('modal-emoji');
+            const title = document.getElementById('modal-title');
+            const subtitle = document.getElementById('modal-subtitle');
+            const eq = document.getElementById('modal-equation');
+            const bonusEl = document.getElementById('modal-bonus');
+            const nextBtn = document.getElementById('modal-btn-next');
+
+            eq.textContent = `y = ${state.a.toFixed(3)}(x - ${state.h.toFixed(1)})² + ${state.k.toFixed(1)}`;
+
+            if (won) {
+                emoji.textContent = '🏆';
+                title.textContent = 'Target Obliterated!';
+                title.className = 'text-2xl sm:text-3xl font-bold text-emerald-400 mb-2';
+                subtitle.textContent = 'Precision quadratic trajectory achieved!';
+                bonusEl.textContent = `+${bonus} pts`;
+                nextBtn.classList.remove('hidden');
+                nextBtn.textContent = state.levelIdx === LEVELS.length - 1 ? 'Play Again ↻' : 'Next Level ➔';
+            } else {
+                emoji.textContent = '💥';
+                title.textContent = 'Out of Birds!';
+                title.className = 'text-2xl sm:text-3xl font-bold text-rose-400 mb-2';
+                subtitle.textContent = 'Adjust your vertex (h, k) or curvature (a) to hit all targets.';
+                bonusEl.textContent = '+0 pts';
+                nextBtn.classList.add('hidden');
+            }
+            overlay.classList.remove('hidden');
+        }
+
+        // --- PHYSICS & COLLISION STEP ---
+        function updatePhysics() {
+            // Update particles
+            for (let i = state.particles.length - 1; i >= 0; i--) {
+                const p = state.particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy -= 0.005; // gravity on particles
+                p.alpha -= 0.025;
+                if (p.alpha <= 0) state.particles.splice(i, 1);
+            }
+
+            // Update floating score texts
+            for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
+                const ft = state.floatingTexts[i];
+                ft.y += ft.vy;
+                ft.alpha -= 0.018;
+                if (ft.alpha <= 0) state.floatingTexts.splice(i, 1);
+            }
+
+            if (!state.isFlying) return;
+
+            // Sub-stepping along the exact quadratic function y = a(x - h)^2 + k
+            const steps = 4;
+            const dx = 0.22 / steps;
+            const birdRadius = 0.55;
+
+            for (let s = 0; s < steps; s++) {
+                state.projectile.x += dx;
+                state.projectile.y = evalParabola(state.projectile.x);
+
+                if (s === 0 && Math.floor(state.projectile.x * 5) % 2 === 0) {
+                    state.projectile.trail.push({ x: state.projectile.x, y: state.projectile.y });
+                }
+
+                const bx = state.projectile.x;
+                const by = state.projectile.y;
+
+                // 1. Check collision with Pigs (Targets)
+                for (const pig of state.pigs) {
+                    if (!pig.alive) continue;
+                    const dist = Math.hypot(bx - pig.x, by - pig.y);
+                    if (dist <= birdRadius + pig.r) {
+                        pig.alive = false;
+                        sfx.playHitPig();
+                        spawnExplosion(pig.x, pig.y, '#4ade80', 24);
+                        addScore(500, pig.x, pig.y + 0.8, '#4ade80');
+                    }
+                }
+
+                // 2. Check collision with Destructible Wood Blocks (bird smashes right through!)
+                for (const blk of state.blocks) {
+                    if (!blk.intact) continue;
+                    if (
+                        bx + birdRadius > blk.x &&
+                        bx - birdRadius < blk.x + blk.w &&
+                        by + birdRadius > blk.y &&
+                        by - birdRadius < blk.y + blk.h
+                    ) {
+                        blk.intact = false;
+                        sfx.playHitBlock();
+                        spawnExplosion(blk.x + blk.w / 2, blk.y + blk.h / 2, '#d97706', 16);
+                        addScore(150, blk.x + blk.w / 2, blk.y + blk.h + 0.4, '#fbbf24');
+                    }
+                }
+
+                // 3. Check collision with Indestructible Stone Obstacles (stops the bird!)
+                for (const obs of state.obstacles) {
+                    if (
+                        bx + birdRadius * 0.85 > obs.x &&
+                        bx - birdRadius * 0.85 < obs.x + obs.w &&
+                        by + birdRadius * 0.85 > obs.y &&
+                        by - birdRadius * 0.85 < obs.y + obs.h
+                    ) {
+                        sfx.playHitBlock();
+                        spawnExplosion(bx, by, '#94a3b8', 20);
+                        endShot();
+                        return;
+                    }
+                }
+
+                // 4. Check Ground Impact or Out of Bounds
+                if (by <= 0.35 || bx >= state.worldWidth + 1) {
+                    spawnExplosion(bx, Math.max(0.35, by), '#f97316', 14);
+                    endShot();
+                    return;
+                }
+            }
+        }
+
+        // --- RENDERING ENGINE ---
+        function drawScene() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const pad = getPadding();
+
+            // 1. Sky Gradient Background
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+            skyGrad.addColorStop(0, '#090d16');
+            skyGrad.addColorStop(0.55, '#132238');
+            skyGrad.addColorStop(1, '#1e3a5f');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Subtle Decorative Distant Hills
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
+            ctx.beginPath();
+            ctx.moveTo(0, h - pad.bottom);
+            ctx.quadraticCurveTo(w * 0.25, h * 0.62, w * 0.5, h - pad.bottom);
+            ctx.quadraticCurveTo(w * 0.78, h * 0.58, w, h - pad.bottom);
+            ctx.fill();
+
+            // 2. Cartesian Coordinate Grid & Axes
+            drawCoordinateGrid(pad);
+
+            // 3. Ground Plane (y = 0)
+            const groundY = worldToScreen(0, 0).y;
+            const grassGrad = ctx.createLinearGradient(0, groundY, 0, h);
+            grassGrad.addColorStop(0, '#10b981');
+            grassGrad.addColorStop(0.18, '#059669');
+            grassGrad.addColorStop(0.22, '#3f2e21');
+            grassGrad.addColorStop(1, '#1e1610');
+            ctx.fillStyle = grassGrad;
+            ctx.fillRect(0, groundY, w, h - groundY);
+
+            // 4. Slingshot Tower at x = 0
+            drawSlingshot();
+
+            // 5. Indestructible Stone Obstacles
+            for (const obs of state.obstacles) {
+                const topLeft = worldToScreen(obs.x, obs.y + obs.h);
+                const botRight = worldToScreen(obs.x + obs.w, obs.y);
+                const bw = botRight.x - topLeft.x;
+                const bh = botRight.y - topLeft.y;
+
+                ctx.fillStyle = '#475569';
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(topLeft.x, topLeft.y, bw, bh, 6);
+                ctx.fill();
+                ctx.stroke();
+
+                // Hazard stripes
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.35)';
+                ctx.fillRect(topLeft.x + 4, topLeft.y + 6, bw - 8, bh - 12);
+            }
+
+            // 6. Destructible Wooden Blocks
+            for (const blk of state.blocks) {
+                if (!blk.intact) continue;
+                const topLeft = worldToScreen(blk.x, blk.y + blk.h);
+                const botRight = worldToScreen(blk.x + blk.w, blk.y);
+                const bw = botRight.x - topLeft.x;
+                const bh = botRight.y - topLeft.y;
+
+                ctx.fillStyle = '#b45309';
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(topLeft.x, topLeft.y, bw, bh, 4);
+                ctx.fill();
+                ctx.stroke();
+
+                // Inner wood grain cross
+                ctx.strokeStyle = 'rgba(120, 53, 15, 0.6)';
+                ctx.beginPath();
+                ctx.moveTo(topLeft.x + 3, topLeft.y + 3);
+                ctx.lineTo(botRight.x - 3, botRight.y - 3);
+                ctx.stroke();
+            }
+
+            // 7. Target Pigs
+            for (const pig of state.pigs) {
+                if (!pig.alive) continue;
+                const pos = worldToScreen(pig.x, pig.y);
+                const edge = worldToScreen(pig.x + pig.r, pig.y);
+                const rad = Math.max(12, edge.x - pos.x);
+
+                // Glow
+                ctx.save();
+                ctx.shadowColor = '#22c55e';
+                ctx.shadowBlur = 12;
+                ctx.fillStyle = '#22c55e';
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, rad, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+                // Outline & Pig Face
+                ctx.strokeStyle = '#bbf7d0';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Snout
+                ctx.fillStyle = '#86efac';
+                ctx.beginPath();
+                ctx.ellipse(pos.x, pos.y + rad * 0.12, rad * 0.45, rad * 0.32, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Nostrils
+                ctx.fillStyle = '#14532d';
+                ctx.beginPath();
+                ctx.arc(pos.x - rad * 0.16, pos.y + rad * 0.12, rad * 0.08, 0, Math.PI * 2);
+                ctx.arc(pos.x + rad * 0.16, pos.y + rad * 0.12, rad * 0.08, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Eyes
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(pos.x - rad * 0.32, pos.y - rad * 0.25, rad * 0.18, 0, Math.PI * 2);
+                ctx.arc(pos.x + rad * 0.32, pos.y - rad * 0.25, rad * 0.18, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                ctx.arc(pos.x - rad * 0.32, pos.y - rad * 0.25, rad * 0.08, 0, Math.PI * 2);
+                ctx.arc(pos.x + rad * 0.32, pos.y - rad * 0.25, rad * 0.08, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 8. Quadratic Parabola Preview Curve & Interactive Vertex Handle
+            drawParabolaPreview();
+
+            // 9. Projectile Bird & Flight Trail
+            drawBird();
+
+            // 10. Particles & Floating Score Popups
+            for (const p of state.particles) {
+                const pos = worldToScreen(p.x, p.y);
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, p.alpha);
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, p.r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            for (const ft of state.floatingTexts) {
+                const pos = worldToScreen(ft.x, ft.y);
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, ft.alpha);
+                ctx.font = 'bold 16px "JetBrains Mono", monospace';
+                ctx.fillStyle = ft.color;
+                ctx.textAlign = 'center';
+                ctx.fillText(ft.text, pos.x, pos.y);
+                ctx.restore();
+            }
+        }
+
+        function drawCoordinateGrid(pad) {
+            ctx.save();
+            ctx.font = '11px "JetBrains Mono", monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // Vertical Grid Lines (x-axis ticks every 2 units)
+            for (let x = 0; x <= state.worldWidth; x += 2) {
+                const top = worldToScreen(x, state.worldHeight);
+                const bot = worldToScreen(x, 0);
+
+                ctx.strokeStyle = x === 0 ? 'rgba(56, 189, 248, 0.65)' : 'rgba(148, 163, 184, 0.14)';
+                ctx.lineWidth = x === 0 ? 2 : 1;
+                ctx.beginPath();
+                ctx.moveTo(top.x, top.y);
+                ctx.lineTo(bot.x, bot.y);
+                ctx.stroke();
+
+                // X-Axis Labels
+                ctx.fillStyle = x === 0 ? '#38bdf8' : '#94a3b8';
+                ctx.fillText(x.toString(), bot.x, bot.y + 16);
+            }
+
+            // Horizontal Grid Lines (y-axis ticks every 2 units)
+            ctx.textAlign = 'right';
+            for (let y = 0; y <= state.worldHeight; y += 2) {
+                const left = worldToScreen(0, y);
+                const right = worldToScreen(state.worldWidth, y);
+
+                ctx.strokeStyle = y === 0 ? 'rgba(56, 189, 248, 0.65)' : 'rgba(148, 163, 184, 0.14)';
+                ctx.lineWidth = y === 0 ? 2 : 1;
+                ctx.beginPath();
+                ctx.moveTo(left.x, left.y);
+                ctx.lineTo(right.x, right.y);
+                ctx.stroke();
+
+                // Y-Axis Labels
+                if (y > 0) {
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.fillText(y.toString(), left.x - 10, left.y);
+                }
+            }
+            ctx.restore();
+        }
+
+        function drawSlingshot() {
+            const launchY = Math.max(0.5, getLaunchY());
+            const base = worldToScreen(0, 0);
+            const top = worldToScreen(0, launchY);
+
+            // Wooden Pedestal Platform supporting the slingshot at (0, y0)
+            ctx.fillStyle = '#334155';
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 2;
+            ctx.fillRect(base.x - 14, top.y + 12, 28, base.y - (top.y + 12));
+            ctx.strokeRect(base.x - 14, top.y + 12, 28, base.y - (top.y + 12));
+
+            // Slingshot Y-Fork
+            ctx.strokeStyle = '#d97706';
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(top.x, top.y + 14);
+            ctx.lineTo(top.x, top.y + 4);
+            ctx.lineTo(top.x - 7, top.y - 8);
+            ctx.moveTo(top.x, top.y + 4);
+            ctx.lineTo(top.x + 7, top.y - 8);
+            ctx.stroke();
+
+            // Y-Intercept Badge (0, y0)
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+            ctx.beginPath();
+            ctx.roundRect(top.x + 14, top.y - 10, 62, 20, 6);
+            ctx.fill();
+            ctx.font = 'bold 10px "JetBrains Mono", monospace';
+            ctx.fillStyle = '#38bdf8';
+            ctx.textAlign = 'left';
+            ctx.fillText(`(0, ${launchY.toFixed(1)})`, top.x + 19, top.y + 3);
+        }
+
+        function drawParabolaPreview() {
+            ctx.save();
+            // Dashed Quadratic Trajectory Curve
+            ctx.beginPath();
+            ctx.setLineDash([7, 7]);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = state.isFlying ? 'rgba(251, 191, 36, 0.25)' : 'rgba(251, 191, 36, 0.85)';
+
+            let started = false;
+            for (let wx = 0; wx <= state.worldWidth; wx += 0.25) {
+                const wy = evalParabola(wx);
+                if (wy < 0) {
+                    if (started) {
+                        const pt = worldToScreen(wx, 0);
+                        ctx.lineTo(pt.x, pt.y);
+                        break;
+                    }
+                    continue;
+                }
+                const pt = worldToScreen(wx, wy);
+                if (!started) {
+                    ctx.moveTo(pt.x, pt.y);
+                    started = true;
+                } else {
+                    ctx.lineTo(pt.x, pt.y);
+                }
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Axis of Symmetry Vertical Line (x = h)
+            const vTop = worldToScreen(state.h, state.k);
+            const vBot = worldToScreen(state.h, 0);
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.35)';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(vTop.x, vTop.y);
+            ctx.lineTo(vBot.x, vBot.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Draggable Vertex Handle at (h, k) when aiming
+            if (!state.isFlying) {
+                ctx.shadowColor = '#10b981';
+                ctx.shadowBlur = state.draggingVertex ? 18 : 10;
+                ctx.fillStyle = state.draggingVertex ? '#34d399' : '#10b981';
+                ctx.beginPath();
+                ctx.arc(vTop.x, vTop.y, state.draggingVertex ? 11 : 9, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+
+                // Vertex Label Pill
+                ctx.shadowBlur = 0;
+                const label = `V(${state.h.toFixed(1)}, ${state.k.toFixed(1)})`;
+                ctx.font = 'bold 11px "JetBrains Mono", monospace';
+                const textW = ctx.measureText(label).width;
+                ctx.fillStyle = 'rgba(6, 78, 59, 0.92)';
+                ctx.beginPath();
+                ctx.roundRect(vTop.x - textW / 2 - 6, vTop.y - 28, textW + 12, 18, 6);
+                ctx.fill();
+                ctx.fillStyle = '#a7f3d0';
+                ctx.textAlign = 'center';
+                ctx.fillText(label, vTop.x, vTop.y - 16);
+            }
+            ctx.restore();
+        }
+
+        function drawBird() {
+            // Draw flight trail dots
+            for (let i = 0; i < state.projectile.trail.length; i++) {
+                const t = state.projectile.trail[i];
+                const pt = worldToScreen(t.x, t.y);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            const pos = worldToScreen(state.projectile.x, state.projectile.y);
+            const r = 13;
+
+            ctx.save();
+            ctx.translate(pos.x, pos.y);
+
+            // Calculate tangent angle dy/dx = 2a(x - h) for realistic rotation
+            const slope = 2 * state.a * (state.projectile.x - state.h);
+            const angle = Math.atan(-slope);
+            ctx.rotate(angle);
+
+            // Bird Body (Red Cardinal style)
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(0, 0, r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#fecaca';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Belly
+            ctx.fillStyle = '#fca5a5';
+            ctx.beginPath();
+            ctx.arc(0, r * 0.45, r * 0.55, 0, Math.PI);
+            ctx.fill();
+
+            // Eye & Eyebrow
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(r * 0.35, -r * 0.2, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.arc(r * 0.42, -r * 0.2, 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(r * 0.1, -r * 0.5);
+            ctx.lineTo(r * 0.7, -r * 0.35);
+            ctx.stroke();
+
+            // Beak
+            ctx.fillStyle = '#f59e0b';
+            ctx.beginPath();
+            ctx.moveTo(r * 0.85, -2);
+            ctx.lineTo(r * 1.45, 2);
+            ctx.lineTo(r * 0.85, 6);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // --- DIRECT CANVAS DRAG INTERACTION (Mouse & Touch) ---
+        function getPointerPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
+        }
+
+        function handlePointerDown(e) {
+            if (state.isFlying || state.modalOpen) return;
+            const pt = getPointerPos(e);
+            const vScreen = worldToScreen(state.h, state.k);
+            const distToVertex = Math.hypot(pt.x - vScreen.x, pt.y - vScreen.y);
+
+            if (distToVertex <= 28) {
+                state.draggingVertex = true;
+                e.preventDefault();
+            } else {
+                // Check if user tapped near the parabola curve to adjust 'a'
+                const wPt = screenToWorld(pt.x, pt.y);
+                if (wPt.x >= 1 && wPt.x <= state.worldWidth) {
+                    const expectedY = evalParabola(wPt.x);
+                    const curveScreen = worldToScreen(wPt.x, expectedY);
+                    if (Math.hypot(pt.x - curveScreen.x, pt.y - curveScreen.y) <= 30) {
+                        state.draggingCurve = true;
+                        e.preventDefault();
+                    }
+                }
+            }
+        }
+
+        function handlePointerMove(e) {
+            if (!state.draggingVertex && !state.draggingCurve) return;
+            e.preventDefault();
+            const pt = getPointerPos(e);
+            const wPt = screenToWorld(pt.x, pt.y);
+
+            if (state.draggingVertex) {
+                // Dragging (h, k) directly!
+                clampParameters(state.a, wPt.x, wPt.y);
+            } else if (state.draggingCurve) {
+                // Solve for 'a' passing through pointer (x, y) given vertex (h, k):
+                // y = a(x - h)^2 + k  =>  a = (y - k) / (x - h)^2
+                const denom = Math.pow(wPt.x - state.h, 2);
+                if (denom > 1.5) {
+                    const solvedA = (wPt.y - state.k) / denom;
+                    if (solvedA < -0.005) {
+                        clampParameters(solvedA, state.h, state.k);
+                    }
+                }
+            }
+        }
+
+        function handlePointerUp() {
+            state.draggingVertex = false;
+            state.draggingCurve = false;
+        }
+
+        canvas.addEventListener('mousedown', handlePointerDown);
+        window.addEventListener('mousemove', handlePointerMove);
+        window.addEventListener('mouseup', handlePointerUp);
+
+        canvas.addEventListener('touchstart', handlePointerDown, { passive: false });
+        window.addEventListener('touchmove', handlePointerMove, { passive: false });
+        window.addEventListener('touchend', handlePointerUp);
+
+        // --- SLIDER & BUTTON EVENT LISTENERS ---
+        sliderA.addEventListener('input', () => {
+            if (!state.isFlying) clampParameters(parseFloat(sliderA.value), state.h, state.k);
+        });
+        sliderH.addEventListener('input', () => {
+            if (!state.isFlying) clampParameters(state.a, parseFloat(sliderH.value), state.k);
+        });
+        sliderK.addEventListener('input', () => {
+            if (!state.isFlying) clampParameters(state.a, state.h, parseFloat(sliderK.value));
+        });
+
+        document.getElementById('btn-fire').addEventListener('click', launchBird);
+        document.getElementById('btn-reset').addEventListener('click', () => loadLevel(state.levelIdx));
+
+        document.getElementById('modal-btn-retry').addEventListener('click', () => loadLevel(state.levelIdx));
+        document.getElementById('modal-btn-next').addEventListener('click', () => {
+            if (state.levelIdx === LEVELS.length - 1) {
+                state.score = 0;
+                scoreDisplay.textContent = '0';
+                loadLevel(0);
+            } else {
+                loadLevel(state.levelIdx + 1);
+            }
+        });
+
+        // Sound & Help Controls
+        const btnSound = document.getElementById('btn-sound');
+        btnSound.addEventListener('click', async () => {
+            await sfx.init();
+            sfx.enabled = !sfx.enabled;
+            btnSound.textContent = sfx.enabled ? '🔊' : '🔇';
+        });
+
+        const helpOverlay = document.getElementById('help-overlay');
+        document.getElementById('btn-help').addEventListener('click', () => helpOverlay.classList.remove('hidden'));
+        document.getElementById('btn-close-help').addEventListener('click', () => helpOverlay.classList.add('hidden'));
+        document.getElementById('btn-got-it').addEventListener('click', () => helpOverlay.classList.add('hidden'));
+
+        // Keyboard Spacebar to Launch
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && !state.modalOpen && helpOverlay.classList.contains('hidden')) {
+                e.preventDefault();
+                launchBird();
+            }
+        });
+
+        // --- RESPONSIVE CANVAS RESIZING ---
+        function resizeCanvas() {
+            const rect = container.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- MAIN ANIMATION LOOP ---
+        function gameLoop() {
+            updatePhysics();
+            drawScene();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.onload = function () {
+            resizeCanvas();
+            loadLevel(0);
+            gameLoop();
+        };
+    </script>
+</body>
+</html>
